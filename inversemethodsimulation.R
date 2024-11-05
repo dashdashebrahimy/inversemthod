@@ -3,8 +3,6 @@ library(nortest)
 library(stats)
 library(VGAM)
 
-
-# Define uniform generation functions
 generate_random_numbers_additive_congruence <- function(n, x0, x1, m) {
   m <- nchar(as.character(x0))
   result <- c(as.integer(x0), as.integer(x1))
@@ -67,15 +65,12 @@ generate_random_numbers_seed_fix <- function(n, u, fix) {
   return(result / (10^k))
 }
 
-# Define Bernoulli distribution function for example
-# Bernoulli distribution
 ranbern <- function(size, p, uniform_data) {
   y <- ifelse(uniform_data < p, 1, 0)
   hist(y, breaks = 0:2, main = "Bernoulli Distribution", xlab = "Outcome", col = "skyblue")
   return(y)
 }
 
-# Poisson distribution
 ranpoisson <- function(size, lambda, x) {
   y <- sapply(x, function(u) {
     n <- 0
@@ -88,7 +83,6 @@ ranpoisson <- function(size, lambda, x) {
   return(y)
 }
 
-# Geometric distribution
 rangeometric <- function(size, theta, x) {
   y <- sapply(x, function(u) {
     n <- 0
@@ -101,7 +95,6 @@ rangeometric <- function(size, theta, x) {
   return(y)
 }
 
-# Binomial distribution
 ranbino <- function(size, n, prob, x) {
   y <- sapply(x, function(u) {
     count <- 0
@@ -114,14 +107,12 @@ ranbino <- function(size, n, prob, x) {
   return(y)
 }
 
-# Continuous Uniform distribution (over custom range)
 ranunif <- function(size, a, b, x) {
   y <- floor(x * (b - a + 1)) + a
   hist(y, breaks = seq(a, b, 1), main = "Uniform Distribution", xlab = "Value", col = "gold")
   return(y)
 }
 
-# Negative Binomial distribution
 rannegbinom <- function(size, r, p, x) {
   y <- sapply(x, function(u) {
     n <- 0
@@ -134,21 +125,20 @@ rannegbinom <- function(size, r, p, x) {
   return(y)
 }
 
-# Exponential distribution
+
 ranexp <- function(size, lambda, x) {
   y <- (-1 / lambda) * log(1 - x)
   hist(y, main = "Exponential Distribution", xlab = "Value", col = "coral")
   return(y)
 }
 
-# Cauchy distribution
+
 rancauchy <- function(size, sigma, x) {
   y <- sigma * tan(pi * (x - 0.5))
   hist(y, main = "Cauchy Distribution", xlab = "Value", col = "lightpink")
   return(y)
 }
 
-# Normal distribution
 rannorm <- function(size, mean, sd, x) {
   y <- qnorm(x) * sd + mean
   hist(y, main = "Normal Distribution", xlab = "Value", col = "lightblue")
@@ -219,8 +209,7 @@ best_test <- function(data, dist_type, ...) {
   } else if (dist_type == "normal_distribution" && !is.null(params$mean) && !is.null(params$sd)) {
     test_result <- list(test = "Kolmogorov-Smirnov", p_value = ks.test(data, "pnorm", params$mean, params$sd)$p.value)
   }
-  
-  # Result interpretation
+
   if (!is.null(test_result$p_value)) {
     if (test_result$p_value < 0.05) {
       return(paste("Based on p-value", test_result$p_value, "from the", test_result$test, "test, the data does not follow the", dist_type, "distribution."))
@@ -233,9 +222,9 @@ best_test <- function(data, dist_type, ...) {
 }
 
 
-# UI definition
-ui <- fluidPage(
+ui <- navbarPage(
   titlePanel("Random Number Simulation"),
+  
   tabsetPanel(
     tabPanel("Uniform Number Generation",
              sidebarLayout(
@@ -249,8 +238,6 @@ ui <- fluidPage(
                                          "Seed and Fix" = "seed_fix"),
                              selected = "runif"),
                  numericInput("size", "Sample Size:", 100),
-                 
-                 # Conditional inputs based on uniform generation method
                  conditionalPanel(condition = "input.uniform_method == 'one_seed'",
                                   numericInput("seed", "Seed:", value = 123)),
                  conditionalPanel(condition = "input.uniform_method == 'seed_fix'",
@@ -266,10 +253,12 @@ ui <- fluidPage(
                  conditionalPanel(condition = "input.uniform_method == 'two_seeds'",
                                   numericInput("seed1", "Seed 1:", value = 123),
                                   numericInput("seed2", "Seed 2:", value = 456)),
-                 actionButton("generate_uniform", "Generate Uniform Numbers")
+                 actionButton("generate_uniform", "Generate Uniform Numbers"),
+                 actionButton("Analyze_uniform","Analyze numbers")
                ),
                mainPanel(
                  textOutput("uniform_output")
+                 
                )
              )),
     
@@ -294,7 +283,6 @@ ui <- fluidPage(
                              ),
                              selected = "exponential_distribution"),
                  
-                 # Conditional inputs based on distribution choice
                  conditionalPanel(condition = "input.dist_choice == 'pareto_distribution'",
                                   numericInput("lambda_pareto", "Lambda:", 2),
                                   numericInput("xm_pareto", "xm:", 1)),
@@ -343,13 +331,11 @@ ui <- fluidPage(
   )
 )
 
-# Server logic
 server <- function(input, output, session) {
-  # Reactive value to store uniform data
+
   uniform_data <- reactiveVal()
   distribution_data <- reactiveVal()
   
-  # Generate uniform numbers based on selected method
   observeEvent(input$generate_uniform, {
     size <- input$size
     method <- input$uniform_method
@@ -368,7 +354,25 @@ server <- function(input, output, session) {
     })
   })
   
-  # Generate distribution data based on the selected distribution and uniform data
+  observeEvent(input$Analyze_uniform, {
+    data <- uniform_data()
+    if (is.null(data)) {
+      showNotification("Please generate uniform data first.", type = "error")
+      return()
+    }
+    ks_test <- ks.test(data, "punif")
+    ad_test <- ad.test(data)
+    chi_square <- sum((data - mean(data))^2 / mean(data))
+    showNotification(
+      paste(
+        "Kolmogorov-Smirnov Test p-value:", round(ks_test$p.value, 4),
+        "\nAnderson-Darling Test p-value:", round(ad_test$statistic, 4),
+        "\nChi-Square Statistic:", round(chi_square, 4)
+      ), 
+      duration = 5, 
+      type = "message"
+    )
+  })  
   observeEvent(input$generate_numbers, {
     data <- uniform_data()
     if (is.null(data) || length(data) == 0) {
@@ -393,24 +397,22 @@ server <- function(input, output, session) {
     
     distribution_data(dist_function)
   })
-  
-  # Render histogram and box plot for the selected distribution data
+
   output$dist_plot <- renderPlot({
     if (!is.null(distribution_data())) {
       x <- distribution_data()
+    
+      par(mfrow = c(1, 2))  
       
-      # Plot layout with two subplots (histogram and boxplot)
-      par(mfrow = c(1, 2))  # Layout to arrange two plots in a row
-      
-      # 1. Histogram
+
       hist(x, col = "skyblue", main = "Histogram", xlab = "Values")
       
-      # 2. Box plot
+
       boxplot(x, main = "Box Plot", col = "lightgreen", horizontal = TRUE)
     }
   })
   
-  # Render QQ plot when 'Analyze' button is clicked
+
   observeEvent(input$analyze_distribution, {
     data <- distribution_data()
     if (is.null(data) || length(data) == 0) {
@@ -418,11 +420,11 @@ server <- function(input, output, session) {
       return(NULL)
     }
     
-    # Initialize the result variable and identify the distribution type
+ 
     dist_type <- input$dist_choice
-    analysis_result <- NULL  # Variable to store the result
+    analysis_result <- NULL
     
-    # Attempt the `best_test` call with appropriate parameters based on distribution type
+
     tryCatch({
       analysis_result <- switch(dist_type,
                                 "bernoulli_distribution" = best_test(data, dist_type, p = input$p),
@@ -452,16 +454,14 @@ server <- function(input, output, session) {
         else analysis_result
       })
       
-      # بخش مربوط به خروجی نمودار اصلی
+
       output$plots <- renderPlot({
         dist_type <- input$dist_choice
-        
-        # ایجاد مقادیر x برای رسم تابع چگالی در یک بازه
-        x_vals <- seq(0, 10, length.out = 50)  # بازه مو
+               x_vals <- seq(0, 10, length.out = 50)  
         x_vals_b <- 0:input$theta_binom
         probs_cat <- as.numeric(unlist(strsplit(input$probs_cat, ",")))
         type <- "l"
-        # محاسبه مقادیر تابع چگالی برای توزیع انتخابی
+     
         theoretical_density <- switch(dist_type,
                                       "normal_distribution" = {
                                         x_vals_norm <- seq(input$mean_norm - 3 * input$sd_norm, input$mean_norm + 3 * input$sd_norm, length.out = 50)
@@ -511,16 +511,18 @@ server <- function(input, output, session) {
                                       "rayleigh_distribution" = {
                                         sigma <- input$sigma_rayleigh
                                         if (sigma > 0) {
-                                          d_rayleigh <- (x_vals / sigma^2) * exp(-x_vals^2 / (2 * sigma^2))  # Rayleigh PDF
-                                          d_rayleigh[x_vals < 0] <- 0  # Set PDF to 0 for negative x values
+                                          d_rayleigh <- (x_vals / sigma^2) * exp(-x_vals^2 / (2 * sigma^2))  
+                                          d_rayleigh[x_vals < 0] <- 0 
+                                 
                                           d_rayleigh
                                         } else {
-                                          rep(NA, length(x_vals))  # Return NA if sigma is not positive
+                                          rep(NA, length(x_vals)) 
+                                        
                                         }
                                       },
                                       NULL)
         
-        # بررسی و نمایش چگالی تئوریک در صورت معتبر بودن
+   
         if (!is.null(theoretical_density)) {
           plot(x_vals, theoretical_density, type = type, col = "blue", lwd = 2,
                main = paste("Theoretical Density for", dist_type),
@@ -531,7 +533,7 @@ server <- function(input, output, session) {
         }
       })
       
-      # Generate QQ plot to compare with theoretical quantiles
+
       output$qq_plot <- renderPlot({
         if (!is.null(data)) {
           theoretical <- switch(dist_type,
@@ -543,11 +545,11 @@ server <- function(input, output, session) {
                                 "cauchy_distribution" = qcauchy(ppoints(data), scale = input$sigma_cauchy),
                                 "uniform_distribution" = qunif(ppoints(data), min = input$a_unif, max = input$b_unif),
                                 "negative_binomial_distribution" = qnbinom(ppoints(data), size = input$r_neg_binom, prob = input$p_neg_binom),
-                                "rayleigh_distribution" = sqrt(-2 * input$sigma_rayleigh^2 * log(1 - ppoints(data))),  # Rayleigh quantiles
-                                "pareto_distribution" = input$xm_pareto * (1 - ppoints(data))^(-1 / input$lambda_pareto),  # Pareto quantiles
+                                "rayleigh_distribution" = sqrt(-2 * input$sigma_rayleigh^2 * log(1 - ppoints(data))), 
+                                "pareto_distribution" = input$xm_pareto * (1 - ppoints(data))^(-1 / input$lambda_pareto),
                                 "hypergeometric_distribution" = qhyper(ppoints(data), m = input$m, n = input$n, k = input$k),
-                                "categorical_distribution" = as.numeric(as.factor(data)),  # Categorical: no theoretical quantile function
-                                "bernoulli_distribution" = qbinom(ppoints(data), size = 1, prob = input$p),  # Bernoulli as a binomial
+                                "categorical_distribution" = as.numeric(as.factor(data)), 
+                                "bernoulli_distribution" = qbinom(ppoints(data), size = 1, prob = input$p),  
                                 NULL)
           
           if (!is.null(theoretical)) {
@@ -566,6 +568,6 @@ server <- function(input, output, session) {
   })
 }
 
-# Run the app
+
 shinyApp(ui = ui, server = server)
 
